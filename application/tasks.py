@@ -634,12 +634,13 @@ def _execute_register_task(payload: dict[str, Any], logger: TaskLogger) -> None:
                 logger.log(f"使用代理: {resolved_proxy}")
             account = platform.register(email=email, password=password)
             saved_account = save_account(account)
+            saved_account_id = int(saved_account.id)
             if resolved_proxy:
                 proxy_pool.report_success(resolved_proxy)
             logger.record_success()
             logger.log(f"注册成功: {account.email}")
             return {
-                "account_id": int(saved_account.id),
+                "account_id": saved_account_id,
                 "email": account.email,
             }
         except Exception as exc:

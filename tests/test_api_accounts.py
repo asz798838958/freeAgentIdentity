@@ -32,6 +32,36 @@ def _create_account(**overrides):
     return records[0].id
 
 
+def test_save_account_returns_model_with_loaded_attributes_after_session_close():
+    created = save_account(
+        Account(
+            platform="chatgpt",
+            email="detached-model@test.com",
+            password="FirstPass123!",
+            user_id="acct-detached",
+            extra={"access_token": "access-token"},
+        )
+    )
+
+    created_id = int(created.id)
+    assert created_id > 0
+    assert created.email == "detached-model@test.com"
+
+    updated = save_account(
+        Account(
+            platform="chatgpt",
+            email="detached-model@test.com",
+            password="SecondPass123!",
+            user_id="acct-detached",
+            extra={"access_token": "updated-access-token"},
+        )
+    )
+
+    assert int(updated.id) == created_id
+    assert updated.email == "detached-model@test.com"
+    assert updated.password == "SecondPass123!"
+
+
 def test_list_accounts_empty(client):
     resp = client.get("/api/accounts")
     assert resp.status_code == 200

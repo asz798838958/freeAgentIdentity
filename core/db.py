@@ -288,6 +288,10 @@ def save_account(account) -> 'AccountModel':
             session.refresh(existing)
             sync_platform_account_graph(session, existing, account)
             session.commit()
+            # The graph write commits the session and expires ORM attributes.
+            # Reload before leaving the context so callers can safely read the
+            # returned model (especially its primary key) after detachment.
+            session.refresh(existing)
             return existing
         m = AccountModel(
             platform=account.platform,
@@ -300,6 +304,7 @@ def save_account(account) -> 'AccountModel':
         session.refresh(m)
         sync_platform_account_graph(session, m, account)
         session.commit()
+        session.refresh(m)
         return m
 
 
