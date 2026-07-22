@@ -1,0 +1,42 @@
+appId: com.abaiautoplus.app
+productName: aBaiAutoplus
+copyright: Copyright © 2026
+
+directories:
+  output: dist
+  buildResources: build
+
+# 自动更新：从 GitHub Releases 检查
+publish:
+  provider: github
+  owner: asz798838958
+  repo: aBaiAutoplus
+
+# 将 PyInstaller 产物和前端静态文件打包进 resources/
+extraResources:
+  - from: backend
+    to: backend
+    filter:
+      - "**/*"
+
+mac:
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+    - target: zip
+  icon: build/icon.icns
+
+win:
+  target:
+    - target: nsis
+  icon: build/icon.ico
+
+linux:
+  target:
+    - target: AppImage
+  category: Utility
+  icon: build/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

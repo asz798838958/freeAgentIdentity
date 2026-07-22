@@ -1,0 +1,218 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 推送 v1.0.0 这样的 tag 时触发
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium
+
+      - name: Build frontend
+        run: cd frontend && npm ci --legacy-peer-deps && npm run build
+
+      - name: Inject version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "__version__ = \"$VERSION\"" > core/version.py
+          cd electron && npm version --no-git-tag-version --allow-same-version "$VERSION"
+
+      - name: Build Python backend
+        run: |
+          pip install pyinstaller
+          pyinstaller --onedir --name backend \
+            --add-data "platforms:platforms" \
+            --add-data "core:core" \
+            --add-data "api:api" \
+            --add-data "services:services" \
+            --add-data "static:static" \
+            --collect-all browserforge \
+            --collect-all camoufox \
+            --collect-all apify_fingerprint_datapoints \
+            --collect-all language_tags \
+            --collect-all ua_parser \
+            --collect-all ua_parser_builtins \
+            --collect-all quart \
+            --collect-all hypercorn \
+            --collect-all aiofiles \
+            --collect-all werkzeug \
+            main.py
+          mkdir -p electron/backend
+          cp -r dist/backend electron/backend/
+
+      - name: Build Electron (macOS)
+        run: |
+          cd electron
+          npm ci --legacy-peer-deps
+          npx electron-builder --mac --publish never
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+
+      - name: Ad-hoc sign macOS app (avoid xattr -cr)
+        run: |
+          APP_PATH=$(find electron/dist -name "*.app" -maxdepth 2 | head -1)
+          if [ -n "$APP_PATH" ]; then
+            codesign --force --deep --sign - "$APP_PATH"
+            echo "Signed: $APP_PATH"
+          fi
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-builds
+          path: |
+            electron/dist/*.dmg
+            electron/dist/*.zip
+          if-no-files-found: error
+
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Build frontend
+        run: cd frontend && npm ci --legacy-peer-deps && npm run build
+
+      - name: Inject version
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "__version__ = `"$version`"" | Out-File -FilePath core/version.py -Encoding utf8
+          cd electron
+          npm version --no-git-tag-version --allow-same-version $version
+
+      - name: Build Python backend
+        run: |
+          pip install pyinstaller
+          pyinstaller --onedir --name backend `
+            --add-data "platforms;platforms" `
+            --add-data "core;core" `
+            --add-data "api;api" `
+            --add-data "services;services" `
+            --add-data "static;static" `
+            --collect-all browserforge `
+            --collect-all camoufox `
+            --collect-all apify_fingerprint_datapoints `
+            --collect-all language_tags `
+            --collect-all ua_parser `
+            --collect-all ua_parser_builtins `
+            --collect-all quart `
+            --collect-all hypercorn `
+            --collect-all aiofiles `
+            --collect-all werkzeug `
+            main.py
+          New-Item -ItemType Directory -Force -Path electron/backend
+          Copy-Item -Recurse dist/backend electron/backend/
+        shell: pwsh
+
+      - name: Build Electron (Windows)
+        run: |
+          cd electron
+          npm ci --legacy-peer-deps
+          npx electron-builder --win --publish never
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-builds
+          path: electron/dist/*.exe
+          if-no-files-found: error
+
+  build-docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Inject version into source
+        run: echo '__version__ = "${{ steps.version.outputs.version }}"' > core/version.py
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: APP_VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: [build-mac, build-win, build-docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download macOS builds
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-builds
+          path: dist/
+
+      - name: Download Windows builds
+        uses: actions/download-artifact@v4
+        with:
+          name: win-builds
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

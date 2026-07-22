@@ -1,0 +1,23 @@
+fastapi>=0.110.0
+uvicorn>=0.29.0
+sqlmodel>=0.0.16
+curl_cffi>=0.6.0
+requests>=2.31.0
+playwright>=1.43.0
+pydantic>=2.0.0
+PyNaCl>=1.5,<2
+jwcrypto>=1.5.0
+cbor2>=5.4.0
+camoufox[geoip]>=0.4.0
+aiofiles>=23.0.0
+patchright>=1.0.0
+quart>=0.19.0
+rich>=13.0.0
+pyinstaller>=6.0.0
+tls-client>=1.0.0
+# httpx[socks] —— GoPay App 纯协议注册用 httpx.Client；socks extra（socksio）
+# 是走 socks5h 印尼代理过 WAF 的必需依赖，缺了会报 "socks5h is not supported"。
+httpx[socks]>=0.27.0
+
+# Testing
+pytest>=8.0.0

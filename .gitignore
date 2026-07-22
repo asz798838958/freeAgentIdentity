@@ -1,0 +1,100 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+_debug_*.py
+
+# 数据库
+*.db
+*.db-journal
+*.sqlit
+*.db.*.bak
+*.db.pre_*
+
+# 日志
+logs/
+*.log
+
+# 账号数据
+accounts.txt
+*_accounts.txt
+account.txt
+
+# 前端
+frontend/node_modules/
+frontend/dist/
+
+# Electron
+electron/node_modules/
+electron/dist/
+electron/backend/
+
+# PyInstaller
+backend.spec
+--add-data=*
+--add-binary=*
+--hidden-import=*
+--collect-all=*
+static/
+
+# Docker 数据
+data/
+
+# 环境变量
+.env
+.env.local
+
+# 文档
+docs/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.ace-tool/
+
+# AI 工具 & 设计文档
+AGENTS.md
+.claude/
+.trellis/
+.windsurf/
+docs/REFACTOR-PLAN.md
+
+# 敏感文件
+*.har
+
+# Sensitive credential exports and runtime dumps
+acc*.json
+*_inspect.txt
+otp_*.txt
+har_*.txt
+logger.txt
+tsrce_origin.txt
+task_events.txt
+tax.txt
+progress.txt
+pytest_out.txt
+OPEN_SOURCE_RELEASE.md
+platforms/chatgpt/PAYPAL_PROTOCOL_FLOW.md
+
+# Captures, local protocol experiments, and private worker state
+tools/captures/
+gopay-auto-protocol/
+platforms/gopay-deploy/
+tests/fixtures/paypal_*_har.json
+**/gopay_worker_accounts.json
+ssl_dump.*
+protobuf_packets.json
+
+# Frida release/devkit binaries are too large for normal Git history.
+gopay-auto-protocol/**/frida-core-devkit-*/
+gopay-auto-protocol/**/frida-server-*
